@@ -1,5 +1,5 @@
 # SMoD
-SequenceMotifDecomposer (SMoD) is a motif finder algorithm.
+SequenceMotifDecomposer (SMoD) is a motif finder algorithm based on the [EDeN](https://github.com/fabriziocosta/EDeN) framework.
 
 
 ## Installation
