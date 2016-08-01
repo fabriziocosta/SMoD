@@ -2,6 +2,14 @@
 SequenceMotifDecomposer (SMoD) is a motif finder algorithm.
 
 
+## Installation
+
+SMoD can be installed via [conda](http://conda.pydata.org/miniconda.html):
+
+```bash
+conda install smod -c bioconda
+```
+
 ## Help
 
 ```
