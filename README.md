@@ -10,6 +10,16 @@ SMoD can be installed via [conda](http://conda.pydata.org/miniconda.html):
 conda install smod -c bioconda
 ```
 
+
+## Usage
+
+SMoD can be invoked as:
+
+```bash
+./smod --pos data.fa -t 1 --freq_th 0 --std_th 0 | tee results.txt
+```
+
+
 ## Help
 
 ```
