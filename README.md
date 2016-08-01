@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.59226.svg)](http://dx.doi.org/10.5281/zenodo.59226)
+
 # SMoD
 SequenceMotifDecomposer (SMoD) is a motif finder algorithm based on the [EDeN](https://github.com/fabriziocosta/EDeN) framework.
 
