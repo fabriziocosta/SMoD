@@ -1,0 +1,226 @@
+#!/usr/bin/env python
+
+"""SequenceMotifDecomposer (SMoD) is a motif finder algorithm.
+
+Version: 1.0
+Author: Fabrizio Costa [costa@informatik.uni-freiburg.de]
+
+Usage:
+  smod --pos FILE (--neg FILE | -t N)  [-o PATH] [-c N] [-n N]
+       [--min_subarray_size N] [--max_subarray_size N] [--similarity_th N]
+       [--min_score N] [--min_freq N] [--min_cluster_size N] [--regex_th N]
+       [--sample_size N] [--freq_th N] [--std_th N]
+       [--verbose]
+  smod (-h | --help)
+  smod --version
+
+Options:
+  --pos FILE              Specify input fasta file for positive seqs.
+  --neg FILE              Specify input fasta file for negative seqs.
+  -t N                    The num of permutations for each positive
+                          sequence [default: 1].
+  -c N                    Feature complexity [default: 5].
+  -n N                    Specify the num of clusters [default: 20].
+  -o PATH                 Dir name for output files [default: out].
+  --min_subarray_size N   The min num of nt in a motif [default: 4].
+  --max_subarray_size N   The max num of nt in a motif [default: 10].
+  --similarity_th N       The min relative edit distance to merge two motives
+                          [default: 0.5].
+  --min_score N           The min num of nt in a motif that need to have a
+                          freq > min_freq [default: 4].
+  --min_freq N            Min freq in the alignment [default: 0.5].
+  --min_cluster_size N    Min num of seqs selected for a motif [default: 10].
+  --regex_th N            Min freq for a nt to be selected in the regex
+                          expression [default: 0.3].
+  --sample_size N         The num of sequences randomly sampled to
+                          build the alignment for a motif [default: 200].
+  --freq_th N             The min freq of a regex seq (use 0 to deactivate)
+                          [default: 0.03].
+  --std_th N              The max standard deviation for the localization of a
+                          rgex seq (use 0 to deactivate) [default: 25].
+  -h --help               Show this screen.
+  --version               Show version.
+  --verbose               Print more text.
+
+
+"""
+
+import sys
+import os
+import logging
+import logging.handlers
+
+from docopt import docopt
+from eden.sequence_motif_decomposer import SequenceMotifDecomposer as SMoD
+from eden.converter.fasta import fasta_to_sequence
+from eden.modifier.seq import seq_to_seq, shuffle_modifier
+from eden.util import serialize_dict
+
+
+logger = logging.getLogger(__name__)
+
+
+def configure_logging(logger, verbosity=0, filename=None):
+    """Utility to configure the logging aspects.
+
+    If filename is None then
+    no info is stored in files.
+    If filename is not None then everything that is logged is dumped to
+    file (including program traces).
+    Verbosity is an int that can take values:
+    0 -> warning, 1 -> info, >=2 -> debug.
+    All levels are displayed on stdout, not on stderr.
+    Please use exceptions and asserts
+    to output on stderr.
+    """
+    logger.propagate = False
+    logger.handlers = []
+    log_level = logging.WARNING
+    if verbosity == 1:
+        log_level = logging.INFO
+    elif verbosity >= 2:
+        log_level = logging.DEBUG
+    logger.setLevel(logging.DEBUG)
+    # create console handler
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(log_level)
+    # create formatter
+    cformatter = logging.Formatter('%(message)s')
+    # add formatter to ch
+    ch.setFormatter(cformatter)
+    # add handlers to logger
+    logger.addHandler(ch)
+
+    if filename is not None:
+        # create a file handler
+        fh = logging.handlers.RotatingFileHandler(filename=filename,
+                                                  maxBytes=10000000,
+                                                  backupCount=10)
+        fh.setLevel(logging.DEBUG)
+        # create formatter
+        fformatter = logging.Formatter('%(asctime)s | %(levelname)-6s | %(name)10s | %(filename)10s |\
+   %(lineno)4s | %(message)s')
+        # add formatter to fh
+        fh.setFormatter(fformatter)
+        # add handlers to logger
+        logger.addHandler(fh)
+
+
+def load(pos_fname, neg_fname=None, times=1):
+    """load."""
+    pos_seqs = fasta_to_sequence(pos_fname)
+    pos_seqs = list(pos_seqs)
+
+    if neg_fname is None:
+        neg_seqs = fasta_to_sequence(pos_fname)
+        neg_seqs = seq_to_seq(
+            neg_seqs, modifier=shuffle_modifier, times=times, order=1)
+        neg_seqs_ord1 = list(neg_seqs)
+
+        neg_seqs = fasta_to_sequence(pos_fname)
+        neg_seqs = seq_to_seq(
+            neg_seqs, modifier=shuffle_modifier, times=times, order=2)
+        neg_seqs_ord2 = list(neg_seqs)
+
+        neg_seqs = neg_seqs_ord1 + neg_seqs_ord2
+    else:
+        neg_seqs = fasta_to_sequence(neg_fname)
+        neg_seqs = list(neg_seqs)
+
+    return pos_seqs, neg_seqs
+
+
+def save(outdir, smod, motives):
+    """save."""
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+    model_name = outdir + '/' + 'smod.model'
+    smod.save(model_name)
+
+    for cluster_id in motives:
+        out_fname = outdir + '/' + str(cluster_id) + '.fa'
+        with open(out_fname, 'w') as f:
+            seqs = motives[cluster_id]['seqs']
+            for h, s in seqs:
+                f.write('%s\n%s\n' % h, s)
+
+        out_fname = outdir + '/' + str(cluster_id) + '.aln'
+        with open(out_fname, 'w') as f:
+            seqs = motives[cluster_id]['trimmed_align_seqs']
+            for h, s in seqs:
+                f.write('%s\n%s\n' % h, s)
+
+
+def main(args):
+    """Main."""
+    logger.debug(serialize_dict(args))
+
+    # setup variables
+    pos_fname = args['--pos']
+    neg_fname = args['--neg']
+    times_neg = int(args['-t'])
+    outdir = args['-o']
+    complexity = int(args['-c'])
+    n_clusters = int(args['-n'])
+    min_subarray_size = int(args['--min_subarray_size'])
+    max_subarray_size = int(args['--max_subarray_size'])
+    similarity_th = float(args['--similarity_th'])
+    min_score = int(args['--min_score'])
+    min_freq = float(args['--min_freq'])
+    min_cluster_size = int(args['--min_cluster_size'])
+    regex_th = float(args['--regex_th'])
+    sample_size = int(args['--sample_size'])
+    freq_th = float(args['--freq_th'])
+    if freq_th == 0:
+        freq_th = None
+    std_th = float(args['--std_th'])
+    if std_th == 0:
+        std_th = None
+
+    # load data
+    pos_seqs, neg_seqs = load(pos_fname, neg_fname=neg_fname, times=times_neg)
+    pos_size = len(pos_seqs)
+    train_pos_seqs = pos_seqs[:pos_size / 2]
+    test_pos_seqs = pos_seqs[pos_size / 2:]
+
+    neg_size = len(neg_seqs)
+    train_neg_seqs = neg_seqs[:neg_size / 2]
+
+    pos_block_size = pos_size / 16
+    neg_block_size = neg_size / 16
+
+    smod = SMoD(complexity=complexity,
+                n_clusters=n_clusters,
+                min_subarray_size=min_subarray_size,
+                max_subarray_size=max_subarray_size,
+                pos_block_size=pos_block_size,
+                neg_block_size=neg_block_size)
+
+    smod = smod.fit(train_pos_seqs, train_neg_seqs)
+    orig_clusters = smod.predict(test_pos_seqs)
+    motives = smod.merge(orig_clusters,
+                         similarity_th=similarity_th,
+                         min_score=min_score,
+                         min_freq=min_freq,
+                         min_cluster_size=min_cluster_size,
+                         regex_th=regex_th,
+                         sample_size=sample_size)
+    motives = smod.quality_filter(pos_seqs,
+                                  motives,
+                                  freq_th=freq_th,
+                                  std_th=std_th)
+    smod.report(pos_seqs, motives)
+
+    # write
+    save(outdir, smod, motives)
+
+if __name__ == '__main__':
+    args = docopt(__doc__, version='smod 1.0')
+    if args['--verbose']:
+        verbosity = 2
+    else:
+        verbosity = 1
+    configure_logging(logger,
+                      verbosity=verbosity,
+                      filename='smod.log')
+    main(args)
