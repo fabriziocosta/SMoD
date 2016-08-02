@@ -137,7 +137,10 @@ def save(outdir, smod, motives, pos_seqs):
     smod.save(model_name)
 
     out_fname = outdir + '/' + 'motif'
-    smod.report(pos_seqs, motives, fname=out_fname)
+    data = smod.report(pos_seqs, motives, fname=out_fname)
+    out_fname = outdir + '/report.md'
+    with open(out_fname, 'w') as f:
+        f.write(data)
 
     for cluster_id in motives:
         out_fname = outdir + '/' + str(cluster_id) + '.fa'
@@ -199,16 +202,13 @@ def main(args):
                 neg_block_size=neg_block_size)
 
     smod = smod.fit(train_pos_seqs, train_neg_seqs)
-    orig_clusters = smod.predict(test_pos_seqs)
-    motives = smod.merge(orig_clusters,
-                         similarity_th=similarity_th,
-                         min_score=min_score,
-                         min_freq=min_freq,
-                         min_cluster_size=min_cluster_size,
-                         regex_th=regex_th,
-                         sample_size=sample_size)
-    motives = smod.quality_filter(pos_seqs,
-                                  motives,
+    motives = smod.select_motives(seqs=test_pos_seqs,
+                                  similarity_th=similarity_th,
+                                  min_score=min_score,
+                                  min_freq=min_freq,
+                                  min_cluster_size=min_cluster_size,
+                                  regex_th=regex_th,
+                                  sample_size=sample_size,
                                   freq_th=freq_th,
                                   std_th=std_th)
     # write
