@@ -6,7 +6,7 @@ Version: 1.0
 Author: Fabrizio Costa [costa@informatik.uni-freiburg.de]
 
 Usage:
-  smod --pos FILE (--neg FILE | -t N)  [-o PATH] [-c N] [-n N]
+  smod --pos FILE (--neg FILE | -t N) [--unk FILE] [-o PATH] [-c N] [-n N]
        [--min_subarray_size N] [--max_subarray_size N] [--similarity_th N]
        [--min_score N] [--min_freq N] [--min_cluster_size N] [--regex_th N]
        [--sample_size N] [--freq_th N] [--std_th N]
@@ -17,6 +17,7 @@ Usage:
 Options:
   --pos FILE              Specify input fasta file for positive seqs.
   --neg FILE              Specify input fasta file for negative seqs.
+  --unk FILE              Specify fasta file for test seqs [default: None].
   -t N                    The num of permutations for each positive
                           sequence [default: 1].
   -c N                    Feature complexity [default: 5].
@@ -105,10 +106,16 @@ def configure_logging(logger, verbosity=0, filename=None):
         logger.addHandler(fh)
 
 
+def load_single(fname):
+    """load_single."""
+    seqs = fasta_to_sequence(fname)
+    seqs = list(seqs)
+    return seqs
+
+
 def load(pos_fname, neg_fname=None, times=1):
     """load."""
-    pos_seqs = fasta_to_sequence(pos_fname)
-    pos_seqs = list(pos_seqs)
+    pos_seqs = load_single(pos_fname)
 
     if neg_fname is None:
         neg_seqs = fasta_to_sequence(pos_fname)
@@ -123,8 +130,7 @@ def load(pos_fname, neg_fname=None, times=1):
 
         neg_seqs = neg_seqs_ord1 + neg_seqs_ord2
     else:
-        neg_seqs = fasta_to_sequence(neg_fname)
-        neg_seqs = list(neg_seqs)
+        neg_seqs = load_single(neg_fname)
 
     return pos_seqs, neg_seqs
 
@@ -163,6 +169,7 @@ def main(args):
     # setup variables
     pos_fname = args['--pos']
     neg_fname = args['--neg']
+    test_fname = args['--unk']
     times_neg = int(args['-t'])
     outdir = args['-o']
     complexity = int(args['-c'])
@@ -184,15 +191,13 @@ def main(args):
 
     # load data
     pos_seqs, neg_seqs = load(pos_fname, neg_fname=neg_fname, times=times_neg)
+    if test_fname != 'None':
+        test_seqs = load_single(test_fname)
+
     pos_size = len(pos_seqs)
-    train_pos_seqs = pos_seqs[:pos_size / 2]
-    test_pos_seqs = pos_seqs[pos_size / 2:]
-
     neg_size = len(neg_seqs)
-    train_neg_seqs = neg_seqs[:neg_size / 2]
-
-    pos_block_size = pos_size / 16
-    neg_block_size = neg_size / 16
+    pos_block_size = pos_size / 8
+    neg_block_size = neg_size / 8
 
     smod = SMoD(complexity=complexity,
                 n_clusters=n_clusters,
@@ -201,8 +206,8 @@ def main(args):
                 pos_block_size=pos_block_size,
                 neg_block_size=neg_block_size)
 
-    smod = smod.fit(train_pos_seqs, train_neg_seqs)
-    motives = smod.select_motives(seqs=test_pos_seqs,
+    smod = smod.fit(pos_seqs, neg_seqs)
+    motives = smod.select_motives(seqs=test_seqs,
                                   similarity_th=similarity_th,
                                   min_score=min_score,
                                   min_freq=min_freq,
