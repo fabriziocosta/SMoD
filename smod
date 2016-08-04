@@ -6,10 +6,11 @@ Version: 1.0
 Author: Fabrizio Costa [costa@informatik.uni-freiburg.de]
 
 Usage:
-  smod --pos FILE (--neg FILE | -t N) [--unk FILE] [-o PATH] [-c N] [-n N]
-       [--min_subarray_size N] [--max_subarray_size N] [--similarity_th N]
-       [--min_score N] [--min_freq N] [--min_cluster_size N] [--regex_th N]
-       [--sample_size N] [--freq_th N] [--std_th N]
+  smod --pos FILE (--neg FILE | -t N) [--unk FILE] [-o PATH] [-n N] [-p N]
+       [-c N] [--min_subarray_size N] [--max_subarray_size N]
+       [--similarity_th N] [--min_score N] [--min_freq N]
+       [--min_cluster_size N] [--regex_th N] [--sample_size N]
+       [--freq_th N] [--std_th N]
        [--verbose]
   smod (-h | --help)
   smod --version
@@ -21,6 +22,7 @@ Options:
   -t N                    The num of permutations for each positive
                           sequence [default: 1].
   -c N                    Feature complexity [default: 5].
+  -p N                    P-value [default: 0.05].
   -n N                    Specify the num of clusters [default: 20].
   -o PATH                 Dir name for output files [default: out].
   --min_subarray_size N   The min num of nt in a motif [default: 4].
@@ -135,7 +137,7 @@ def load(pos_fname, neg_fname=None, times=1):
     return pos_seqs, neg_seqs
 
 
-def save(outdir, smod, motives, pos_seqs):
+def save(outdir, smod, motives, seqs, p_value=0.05):
     """save."""
     if not os.path.exists(outdir):
         os.mkdir(outdir)
@@ -143,10 +145,16 @@ def save(outdir, smod, motives, pos_seqs):
     smod.save(model_name)
 
     out_fname = outdir + '/' + 'motif'
-    data = smod.report(pos_seqs, motives, fname=out_fname)
+    data = smod.report(seqs, motives, fname=out_fname)
     out_fname = outdir + '/report.md'
     with open(out_fname, 'w') as f:
         f.write(data)
+
+    iterable = smod.decompose(seqs, p_value=p_value)
+    out_fname = outdir + '/' + 'decomposition.txt'
+    with open(out_fname, 'w') as f:
+        for header, begin, end, p, subseq in iterable:
+            f.write('%s %d %d %.2E %s\n' % (header, begin, end, p, subseq))
 
     for cluster_id in motives:
         out_fname = outdir + '/' + str(cluster_id) + '.fa'
@@ -173,6 +181,7 @@ def main(args):
     times_neg = int(args['-t'])
     outdir = args['-o']
     complexity = int(args['-c'])
+    p_value = float(args['-p'])
     n_clusters = int(args['-n'])
     min_subarray_size = int(args['--min_subarray_size'])
     max_subarray_size = int(args['--max_subarray_size'])
@@ -193,6 +202,8 @@ def main(args):
     pos_seqs, neg_seqs = load(pos_fname, neg_fname=neg_fname, times=times_neg)
     if test_fname != 'None':
         test_seqs = load_single(test_fname)
+    else:
+        test_seqs = pos_seqs
 
     pos_size = len(pos_seqs)
     neg_size = len(neg_seqs)
@@ -208,6 +219,7 @@ def main(args):
 
     smod = smod.fit(pos_seqs, neg_seqs)
     motives = smod.select_motives(seqs=test_seqs,
+                                  p_value=p_value,
                                   similarity_th=similarity_th,
                                   min_score=min_score,
                                   min_freq=min_freq,
@@ -217,7 +229,7 @@ def main(args):
                                   freq_th=freq_th,
                                   std_th=std_th)
     # write
-    save(outdir, smod, motives, pos_seqs)
+    save(outdir, smod, motives, test_seqs, p_value=p_value)
 
 if __name__ == '__main__':
     args = docopt(__doc__, version='smod 1.0')
