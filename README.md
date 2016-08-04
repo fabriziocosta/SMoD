@@ -18,8 +18,15 @@ conda install smod -c bioconda
 SMoD can be invoked as:
 
 ```bash
-./smod --pos data.fa -t 1 --freq_th 0 --std_th 0 | tee results.txt
+./smod --pos data.fa -t 1 --freq_th 0 --std_th 0
 ```
+
+## Output
+The program outputs a file called report.md in Markdown format.
+
+One can then convert it to html or pdf with appropriate utilities (e.g. [markdown2pdf](https://github.com/kxxoling/markdown2pdf) )
+
+<p align="center"><img src="fig.png"></p>
 
 
 ## Help
