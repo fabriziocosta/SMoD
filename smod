@@ -201,7 +201,7 @@ def main(args):
 
     # load data
     pos_seqs, neg_seqs = load(pos_fname, neg_fname=neg_fname, times=times_neg)
-    if model_fname == 'None':
+    if model_fname != 'None':
         smod = SMoD()
         smod.load(model_fname)
     else:
