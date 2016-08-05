@@ -60,7 +60,7 @@ from eden.modifier.seq import seq_to_seq, shuffle_modifier
 from eden.util import serialize_dict, configure_logging
 import multiprocessing
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('eden')
 
 
 def load_single(fname):
