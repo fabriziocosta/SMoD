@@ -38,20 +38,24 @@ Version: 1.0
 Author: Fabrizio Costa [costa@informatik.uni-freiburg.de]
 
 Usage:
-  smod --pos FILE (--neg FILE | -t N)  [-o PATH] [-c N] [-n N]
-       [--min_subarray_size N] [--max_subarray_size N] [--similarity_th N]
-       [--min_score N] [--min_freq N] [--min_cluster_size N] [--regex_th N]
-       [--sample_size N] [--freq_th N] [--std_th N]
+  smod -i FILE (--neg FILE | -t N) [-m FILE] [-o PATH] [-n N] [-p N]
+       [-c N] [--min_subarray_size N] [--max_subarray_size N]
+       [--similarity_th N] [--min_score N] [--min_freq N]
+       [--min_cluster_size N] [--regex_th N] [--sample_size N]
+       [--freq_th N] [--std_th N]
        [--verbose]
   smod (-h | --help)
   smod --version
 
 Options:
-  --pos FILE              Specify input fasta file for positive seqs.
+  -i FILE                 Specify input fasta file for positive seqs.
   --neg FILE              Specify input fasta file for negative seqs.
+  -m FILE                 Model file. If specified no fitting is performed
+                          [default: None]
   -t N                    The num of permutations for each positive
                           sequence [default: 1].
   -c N                    Feature complexity [default: 5].
+  -p N                    P-value [default: 0.05].
   -n N                    Specify the num of clusters [default: 20].
   -o PATH                 Dir name for output files [default: out].
   --min_subarray_size N   The min num of nt in a motif [default: 4].
