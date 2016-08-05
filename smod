@@ -6,7 +6,7 @@ Version: 1.0
 Author: Fabrizio Costa [costa@informatik.uni-freiburg.de]
 
 Usage:
-  smod -i FILE (--neg FILE | -t N) [-m FILE] [-o PATH] [-n N] [-p N]
+  smod -i FILE [--neg FILE] [-t N] [-m FILE] [-o PATH] [-n N] [-p N]
        [-c N] [--min_subarray_size N] [--max_subarray_size N]
        [--similarity_th N] [--min_score N] [--min_freq N]
        [--min_cluster_size N] [--regex_th N] [--sample_size N]
@@ -49,7 +49,6 @@ Options:
 
 """
 
-import sys
 import os
 import logging
 import logging.handlers
@@ -58,55 +57,10 @@ from docopt import docopt
 from eden.sequence_motif_decomposer import SequenceMotifDecomposer as SMoD
 from eden.converter.fasta import fasta_to_sequence
 from eden.modifier.seq import seq_to_seq, shuffle_modifier
-from eden.util import serialize_dict
+from eden.util import serialize_dict, configure_logging
+import multiprocessing
 
 logger = logging.getLogger(__name__)
-
-
-def configure_logging(logger, verbosity=0, filename=None):
-    """Utility to configure the logging aspects.
-
-    If filename is None then
-    no info is stored in files.
-    If filename is not None then everything that is logged is dumped to
-    file (including program traces).
-    Verbosity is an int that can take values:
-    0 -> warning, 1 -> info, >=2 -> debug.
-    All levels are displayed on stdout, not on stderr.
-    Please use exceptions and asserts
-    to output on stderr.
-    """
-    logger.propagate = False
-    logger.handlers = []
-    log_level = logging.WARNING
-    if verbosity == 1:
-        log_level = logging.INFO
-    elif verbosity >= 2:
-        log_level = logging.DEBUG
-    logger.setLevel(logging.DEBUG)
-    # create console handler
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(log_level)
-    # create formatter
-    cformatter = logging.Formatter('%(message)s')
-    # add formatter to ch
-    ch.setFormatter(cformatter)
-    # add handlers to logger
-    logger.addHandler(ch)
-
-    if filename is not None:
-        # create a file handler
-        fh = logging.handlers.RotatingFileHandler(filename=filename,
-                                                  maxBytes=10000000,
-                                                  backupCount=10)
-        fh.setLevel(logging.DEBUG)
-        # create formatter
-        fformatter = logging.Formatter('%(asctime)s | %(levelname)-6s | %(name)10s | %(filename)10s |\
-   %(lineno)4s | %(message)s')
-        # add formatter to fh
-        fh.setFormatter(fformatter)
-        # add handlers to logger
-        logger.addHandler(fh)
 
 
 def load_single(fname):
@@ -138,7 +92,7 @@ def load(pos_fname, neg_fname=None, times=1):
     return pos_seqs, neg_seqs
 
 
-def save(outdir, smod, motives, seqs, p_value=0.05):
+def save(outdir, pos_fname, smod, motives, seqs, p_value=0.05):
     """save."""
     if not os.path.exists(outdir):
         os.mkdir(outdir)
@@ -148,12 +102,12 @@ def save(outdir, smod, motives, seqs, p_value=0.05):
 
     out_fname = outdir + '/' + 'motif'
     data = smod.report(seqs, motives, fname=out_fname)
-
     out_fname = outdir + '/report.md'
     with open(out_fname, 'w') as f:
+        f.write('### %s\n' % pos_fname)
         f.write(data)
     logger.info('Report saved in %s' % out_fname)
-    logger.info('Convert for visualization. E.g. use: md2pdf out/report.md')
+    logger.info('Convert for visualization, e.g. using md2pdf out/report.md')
 
     iterable = smod.decompose(seqs, p_value=p_value)
     out_fname = outdir + '/' + 'decomposition.txt'
@@ -180,6 +134,7 @@ def save(outdir, smod, motives, seqs, p_value=0.05):
 
 def main(args):
     """Main."""
+    logger.debug('Program invoked with parameters:')
     logger.debug(serialize_dict(args))
 
     # setup variables
@@ -214,8 +169,9 @@ def main(args):
     else:
         pos_size = len(pos_seqs)
         neg_size = len(neg_seqs)
-        pos_block_size = pos_size / 8
-        neg_block_size = neg_size / 8
+        n_cpus = multiprocessing.cpu_count()
+        pos_block_size = pos_size / n_cpus
+        neg_block_size = neg_size / n_cpus
 
         smod = SMoD(complexity=complexity,
                     n_clusters=n_clusters,
@@ -236,7 +192,7 @@ def main(args):
                                   freq_th=freq_th,
                                   std_th=std_th)
     # write
-    save(outdir, smod, motives, pos_seqs, p_value=p_value)
+    save(outdir, pos_fname, smod, motives, pos_seqs, p_value=p_value)
 
 if __name__ == '__main__':
     args = docopt(__doc__, version='smod 1.0')
