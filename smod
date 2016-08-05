@@ -144,31 +144,38 @@ def save(outdir, smod, motives, seqs, p_value=0.05):
         os.mkdir(outdir)
     model_name = outdir + '/' + 'smod.model'
     smod.save(model_name)
+    logger.info('Model saved in %s' % model_name)
 
     out_fname = outdir + '/' + 'motif'
     data = smod.report(seqs, motives, fname=out_fname)
+
     out_fname = outdir + '/report.md'
     with open(out_fname, 'w') as f:
         f.write(data)
+    logger.info('Report saved in %s' % out_fname)
+    logger.info('Convert for visualization. E.g. use: md2pdf out/report.md')
 
     iterable = smod.decompose(seqs, p_value=p_value)
     out_fname = outdir + '/' + 'decomposition.txt'
     with open(out_fname, 'w') as f:
         for header, begin, end, p, subseq in iterable:
             f.write('%s %d %d %.2E %s\n' % (header, begin, end, p, subseq))
+    logger.info('Decomposition saved in %s' % out_fname)
 
     for cluster_id in motives:
-        out_fname = outdir + '/' + str(cluster_id) + '.fa'
+        out_fname = outdir + '/motif_' + str(cluster_id) + '.fa'
         with open(out_fname, 'w') as f:
             seqs = motives[cluster_id]['seqs']
             for h, s in seqs:
                 f.write('%s\n%s\n' % (h, s))
 
-        out_fname = outdir + '/' + str(cluster_id) + '.aln'
+        out_fname = outdir + '/motif_' + str(cluster_id) + '.aln'
         with open(out_fname, 'w') as f:
             seqs = motives[cluster_id]['trimmed_align_seqs']
             for h, s in seqs:
                 f.write('%s\n%s\n' % (h, s))
+    logger.info('Motives saved in %s/motif_nn.fa and %s/motif_nn.aln' %
+                (outdir, outdir))
 
 
 def main(args):
